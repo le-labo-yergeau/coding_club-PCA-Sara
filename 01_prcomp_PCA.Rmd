@@ -12,7 +12,7 @@ In other words, PCA reduces the dimensionality of a multivariate data to two or 
 
 ```{r Load libraries}
 
-list.of.packages <- c("ade4","ggfortify", "tidyverse", "factoextra")  # For data doubs, For function autoplot(ggfortify), For ggplot2 like graphs (factoextra)
+list.of.packages <- c("ade4","ggfortify", "tidyverse", "factoextra","vegan")  # For data doubs, For function autoplot(ggfortify), For ggplot2 like graphs (factoextra)
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if (length(new.packages) > 0) {
   install.packages(new.packages, dependencies = TRUE) 
