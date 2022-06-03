@@ -1,0 +1,154 @@
+---
+title: "01_prcomp_PCA"
+author: "Sara Correa Garcia"
+date: "02/06/2022"
+output: html_document
+---
+## PCA
+Principal component analysis is used to extract the important information from a multivariate data table and to express this information as a set of few new variables called principal components. These new variables correspond to a linear combination of the originals. The number of principal components is less than or equal to the number of original variables.
+
+The information in a given data set corresponds to the total variation it contains. The goal of PCA is to identify directions (or principal components) along which the variation in the data is maximal.
+In other words, PCA reduces the dimensionality of a multivariate data to two or three principal components, that can be visualized graphically, with minimal loss of information.
+
+```{r Load libraries}
+
+list.of.packages <- c("ade4","ggfortify", "tidyverse", "factoextra")  # For data doubs, For function autoplot(ggfortify), For ggplot2 like graphs (factoextra)
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if (length(new.packages) > 0) {
+  install.packages(new.packages, dependencies = TRUE) 
+  print(paste0("The following package was installed:", new.packages)) 
+} else if (length(new.packages) == 0) {
+  print("All packages were already installed previously")
+}
+# Load all packages at once
+lapply(list.of.packages, require, character.only = TRUE, quietly = TRUE)
+
+```
+
+### Load and scale data
+
+In principal component analysis, variables are often scaled (i.e. standardized). The goal is to make the variables comparable. Generally variables are scaled to have i) standard deviation one and ii) mean zero.
+```{r}
+data(doubs)
+spe <- doubs$fish
+str(spe) 
+dim(spe) #30 27
+spe = spe[-8,] # We eliminate the site 8, that doesn't contain any species
+dim(spe) #29 27
+spe.hel = decostand(spe, method = "hellinger") # gives low weights to variables with low counts and many zeros. After a transformation, data may or may not subsequently be standardized. 
+```
+
+
+```{r Split data for PCA and prediction}
+set.seed(101) # Set Seed so that same sample can be reproduced in future also
+# Now Selecting 75% of data as sample from total 'n' rows of the data  
+sample <- sample.int(n = nrow(spe.hel), size = floor(.75*nrow(spe.hel)), replace = F)
+train <- spe.hel[sample, ]
+test  <- spe.hel[-sample, ]
+```
+
+
+#### Calculating the PCA
+the eigenvalues measure the amount of variation retained by each principal component. Eigenvalues are large for the first PCs and small for the subsequent PCs. That is, the first PCs corresponds to the directions with the maximum amount of variation in the data set.
+
+We examine the eigenvalues to determine the number of principal components to be considered. The eigenvalues and the proportion of variances (i.e., information) retained by the principal components (PCs) can be extracted using the function get_eigenvalue() [factoextra package].
+```{r PCA}
+pca_res <- prcomp(train, center = TRUE, scale. = TRUE) # standardized
+fviz_eig(pca_res) #Visualize eigenvalues (scree plot). Show the percentage of variances explained by each principal component.
+get_eigenvalue(pca_res)
+biplot(pca_res)
+summary(pca_res)
+names(pca_res)
+pca_res$rotation
+
+```
+sdev: contains the standard devition of princiapl compononents. We can use sdew to compute the variance explained by each PC. 
+rotation: species coordinates
+center: contains the mean of our data before scaling
+scale : the square of scale contains the variance of each column of our data before scaling
+x: stores the principal components 
+### Basic graphic
+
+```{r}
+var_explained <- pca_res$sdev^2/sum(pca_res$sdev^2)
+var_explained[1:5]
+pca_res$x %>% 
+  as.data.frame %>%
+  ggplot(aes(x=PC1,y=PC2)) + geom_point(size=4) +
+  theme_bw(base_size=32) + 
+  labs(x=paste0("PC1: ",round(var_explained[1]*100,1),"%"),
+       y=paste0("PC2: ",round(var_explained[2]*100,1),"%")) +
+  theme(legend.position="top")
+```
+
+
+### Graph of sites - Samples with a similar profile are grouped together
+
+
+```{r}
+fviz_pca_ind(pca_res,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+
+### Graph of variables
+```{r}
+fviz_pca_var(pca_res,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+
+### Biplot of sites and species/variables
+```{r}
+fviz_pca_biplot(pca_res, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+                col.ind = "#696969"  # Individuals color
+                )
+```
+
+
+
+### Accessing PCA results:
+
+```{r}
+library(factoextra)
+# Eigenvalues
+eig.val <- get_eigenvalue(pca_res)
+eig.val
+  
+# Results for Variables/Species
+res.var <- get_pca_var(pca_res)
+res.var$coord          # Coordinates
+res.var$contrib        # Contributions to the PCs
+res.var$cos2           # Quality of representation 
+# Results for Sites
+res.ind <- get_pca_ind(pca_res)
+res.ind$coord          # Coordinates
+res.ind$contrib        # Contributions to the PCs
+res.ind$cos2           # Quality of representation 
+```
+
+
+# Predict using PCA
+
+how to predict the coordinates of new sites using only the information provided by the previously performed PCA.
+
+```{r}
+site.sup.coord <- predict(pca_res, newdata = test)
+site.sup.coord 
+```
+
+plot sites including the test subsample/supplementary sites
+```{r}
+# Plot of active individuals
+p <- fviz_pca_ind(pca_res, repel = TRUE)
+# Add supplementary individuals
+fviz_add(p, site.sup.coord, color = "blue")
+```
+
